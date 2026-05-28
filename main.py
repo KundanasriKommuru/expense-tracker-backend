@@ -1,200 +1,285 @@
+# uvicorn :-- server name
+# FstALP():-- api creator in backend
 from fastapi import FastAPI
 import mysql.connector
 from fastapi.middleware.cors import CORSMiddleware
 import os
+
 app = FastAPI()
 
-
-
-# ======================================================
-# CORS POLICY
-# ======================================================
+#---CORS Policy---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],     # Allow All Frontends
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],     # GET, POST, PUT, DELETE
+    allow_methods=["*"],
     allow_headers=["*"]
 )
 
-# -------------------- DB Connection --------------------
-conn = mysql.connector.connect(
+conn_obj = mysql.connector.connect(
     host=os.getenv("db_host"),
     user=os.getenv("db_user"),
+    port=os.getenv("db_port"),
     password=os.getenv("db_password"),
-    database=os.getenv("db_name"),
-    port=int(os.getenv("db_port"))
+    database=os.getenv("db_name")
 )
 
-cursor = conn.cursor(dictionary=True)
+cursor_obj = conn_obj.cursor()
 
-
-
-# -------------------- Create Table --------------------
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS expenses(
+# ---------------- TABLE ----------------
+cursor_obj.execute("""
+CREATE TABLE IF NOT EXISTS expenses (
     expense_id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(200),
-    amount FLOAT,
+    date DATE,
     category VARCHAR(100),
-    payment_method VARCHAR(100),
-    expense_date DATE,
-    description TEXT
+    amount FLOAT,
+    payment_method VARCHAR(50),
+    description VARCHAR(255)
 )
 """)
 
-conn.commit()
+conn_obj.commit()
+
 
 @app.get("/")
 def home():
 
     return {
-        "message": "API Running Successfully"
+        "message": "Expense Tracker API Running Successfully"
     }
 
-# -------------------- Add Expense --------------------
+
+# ---------------- ADD EXPENSE ----------------
 @app.post("/add_expense")
-def add_expense(data: dict):
-
-    query = """
-    INSERT INTO expenses
-    (title, amount, category, payment_method, expense_date, description)
-    VALUES (%s,%s,%s,%s,%s,%s)
-    """
-
-    values = (
-        data["title"],
-        data["amount"],
-        data["category"],
-        data["payment_method"],
-        data["expense_date"],
-        data["description"]
-    )
-
-    cursor.execute(query, values)
-    conn.commit()
-
-    return {
-        "message": "Expense Added Successfully"
-    }
-
-
-# -------------------- Get All Expenses --------------------
-@app.get("/get_expenses")
-def get_expenses():
-
-    query = """
-    SELECT *
-    FROM expenses
-    ORDER BY expense_id DESC
-    """
-
-    cursor.execute(query)
-
-    data = cursor.fetchall()
-
-    return {
-        "expenses": data
-    }
-
-
-
-
-# -------------------- Get Single Expense --------------------
-@app.get("/get_single_expense/{expense_id}")
-def get_single_expense(expense_id: int):
-
-    query = """
-    SELECT *
-    FROM expenses
-    WHERE expense_id = %s
-    """
-
-    cursor.execute(query, (expense_id,))
-
-    data = cursor.fetchone()
-
-    if data:
+def add_expense(
+    date: str,
+    category: str,
+    amount: float,
+    payment_method: str,
+    description: str
+):
+        query = """
+        INSERT INTO expenses
+        (date, category, amount, payment_method, description)
+        VALUES (%s, %s, %s, %s, %s)
+        """
+        values = (
+            date,
+            category,
+            amount,
+            payment_method,
+            description
+        )
+        cursor_obj.execute(query, values)
+        conn_obj.commit()
         return {
-            "expense": data
+            "message": "Expense added successfully!"
         }
+# ---------------- VIEW EXPENSES ----------------
+@app.get("/view_expenses")
+def view_expenses():
 
-    return {
-        "message": "Expense Not Found"
-    }
+    query = "SELECT * FROM expenses"
+    cursor_obj.execute(query)
+    data = cursor_obj.fetchall()
+    expenses = []
+    for row in data:
+        expenses.append({
+            "Expense ID": row[0],
+            "Date": str(row[1]),
+            "Category": row[2],
+            "Amount": row[3],
+            "Payment Method": row[4],
+            "Description": row[5]
+        })
+    return expenses
 
-
-# -------------------- Update Expense --------------------
+# ---------------- UPDATE EXPENSE ----------------
 @app.put("/update_expense/{expense_id}")
-def update_expense(expense_id: int, data: dict):
-
+def update_expense(
+    expense_id: int,
+    date: str,
+    category: str,
+    amount: float,
+    payment_method: str,
+    description: str
+):
     query = """
     UPDATE expenses
     SET
-        title=%s,
-        amount=%s,
-        category=%s,
-        payment_method=%s,
-        expense_date=%s,
-        description=%s
-    WHERE expense_id=%s
+        date = %s,
+        category = %s,
+        amount = %s,
+        payment_method = %s,
+        description = %s
+    WHERE expense_id = %s
     """
-
     values = (
-        data["title"],
-        data["amount"],
-        data["category"],
-        data["payment_method"],
-        data["expense_date"],
-        data["description"],
+        date,
+        category,
+        amount,
+        payment_method,
+        description,
         expense_id
     )
 
-    cursor.execute(query, values)
-    conn.commit()
-
+    cursor_obj.execute(query, values)
+    conn_obj.commit()
     return {
-        "message": "Expense Updated Successfully"
+        "message": "Expense updated successfully!"
     }
 
 
-
-
-# -------------------- Delete Expense --------------------
+# ---------------- DELETE EXPENSE ----------------
 @app.delete("/delete_expense/{expense_id}")
 def delete_expense(expense_id: int):
-
-    query = """
-    DELETE FROM expenses
-    WHERE expense_id=%s
-    """
-
-    cursor.execute(query, (expense_id,))
-    conn.commit()
-
+    query = "DELETE FROM expenses WHERE expense_id = %s"
+    cursor_obj.execute(query, (expense_id,))
+    conn_obj.commit()
     return {
-        "message": "Expense Deleted Successfully"
+        "message": "Expense deleted successfully!"
     }
 
+# ---------------- SEARCH EXPENSES ----------------
+@app.get("/search_expenses")
+def search_expenses(category: str):
+    cursor_obj.execute("""
+    SELECT * FROM expenses
+    WHERE category = %s
+    """, (category,))
+    data = cursor_obj.fetchall()
+    expenses = []
+    for row in data:
 
+        expenses.append({
+            "Expense ID": row[0],
+            "Date": str(row[1]),
+            "Category": row[2],
+            "Amount": row[3],
+            "Payment Method": row[4],
+            "Description": row[5]
+        })
+    return expenses     
+# ---------------- SORT EXPENSES ----------------
+@app.get("/sort_expenses")
+def sort_expenses(sort_by: str,order: str):
+    if sort_by not in ["date", "amount", "category"]:
+        return {
+            "error": "Invalid sort field"
+        }
+    if order not in ["asc", "desc"]:
+        return {
+            "error": "Invalid order"
+        }
+    query = f"""
+    SELECT * FROM expenses
+    ORDER BY {sort_by} {order}
+    """
+    cursor_obj.execute(query)
+    data = cursor_obj.fetchall()
+    expenses = []
+    for row in data:
+        expenses.append({
+            "Expense ID": row[0],
+            "Date": str(row[1]),
+            "Category": row[2],
+            "Amount": row[3],
+            "Payment Method": row[4],
+            "Description": row[5]
+        })
+    return expenses
+#----------------- FILTER ----------------
 
-# -------------------- Expense Summary --------------------
-@app.get("/expense_summary")
-def expense_summary():
-
+@app.get("/filter_expenses")
+def filter_expenses(
+    category: str,
+    min_amount: float,
+    max_amount: float
+):
     query = """
-    SELECT
-        category,
-        SUM(amount) as total_amount
+    SELECT * FROM expenses
+    WHERE category = %s
+    AND amount BETWEEN %s AND %s
+    """
+    values = (category,min_amount,max_amount)
+    cursor_obj.execute(query, values)
+    data = cursor_obj.fetchall()
+    expenses = []
+    for row in data:
+        expenses.append({
+            "Expense ID": row[0],
+            "Date": str(row[1]),
+            "Category": row[2],
+            "Amount": row[3],
+            "Payment Method": row[4],
+            "Description": row[5]
+        })
+    return expenses
+
+# ---------------- GENERATE REPORT ----------------
+@app.get("/generate_report")
+def generate_report(report_type: str):
+    cursor_obj.execute("SELECT * FROM expenses")
+    data = cursor_obj.fetchall()
+    expenses = []
+    for row in data:
+        expenses.append({
+            "Expense ID": row[0],
+            "Date": str(row[1]),
+            "Category": row[2],
+            "Amount": row[3],
+            "Payment Method": row[4],
+            "Description": row[5]
+        })
+    cursor_obj.execute(
+        "SELECT SUM(amount) FROM expenses"
+    )
+    total_amount = cursor_obj.fetchone()[0]
+    return {
+        "report_type": report_type,
+        "total_amount": total_amount,
+        "expenses": expenses
+    }
+
+#------------------ Analyze Spending ----------------
+# ---------------- ANALYZE SPENDING ----------------
+@app.get("/analyze_spending")
+def analyze_spending():
+    # Category-wise Analysis
+    cursor_obj.execute("""
+    SELECT category, SUM(amount)
     FROM expenses
     GROUP BY category
-    """
-
-    cursor.execute(query)
-
-    data = cursor.fetchall()
-
+    """)
+    category_data = cursor_obj.fetchall()
+    category_analysis = []
+    for row in category_data:
+        category_analysis.append({
+            "Category": row[0],
+            "Total Amount": row[1]
+        })
+    # Payment Method Analysis
+    cursor_obj.execute("""
+    SELECT payment_method, SUM(amount)
+    FROM expenses
+    GROUP BY payment_method
+    """)
+    payment_data = cursor_obj.fetchall()
+    payment_analysis = []
+    for row in payment_data:
+        payment_analysis.append({
+            "Payment Method": row[0],
+            "Total Amount": row[1]
+        })
+    # Total Spending
+    cursor_obj.execute("""
+    SELECT SUM(amount)
+    FROM expenses
+    """)
+    total_spending = cursor_obj.fetchone()[0]
     return {
-        "summary": data
+        "total_spending": total_spending,
+        "category_analysis": category_analysis,
+        "payment_analysis": payment_analysis
     }
-
+    
