@@ -126,7 +126,7 @@ def get_single_expense(expense_id: int):
 
 # -------------------- Update Expense --------------------
 @app.put("/update_expense/{expense_id}")
-def update_expense(expense_id: int, payload: dict):
+def update_expense(expense_id: int, data: dict):
 
     query = """
     UPDATE expenses
