@@ -63,12 +63,12 @@ def add_expense(data: dict):
     """
 
     values = (
-        payload["title"],
-        payload["amount"],
-        payload["category"],
-        payload["payment_method"],
-        payload["expense_date"],
-        payload["description"]
+        data["title"],
+        data["amount"],
+        data["category"],
+        data["payment_method"],
+        data["expense_date"],
+        data["description"]
     )
 
     cursor.execute(query, values)
@@ -141,12 +141,12 @@ def update_expense(expense_id: int, payload: dict):
     """
 
     values = (
-        payload["title"],
-        payload["amount"],
-        payload["category"],
-        payload["payment_method"],
-        payload["expense_date"],
-        payload["description"],
+        data["title"],
+        data["amount"],
+        data["category"],
+        data["payment_method"],
+        data["expense_date"],
+        data["description"],
         expense_id
     )
 
