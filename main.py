@@ -54,7 +54,7 @@ def home():
 
 # -------------------- Add Expense --------------------
 @app.post("/add_expense")
-def add_expense(payload: dict):
+def add_expense(data: dict):
 
     query = """
     INSERT INTO expenses
@@ -197,4 +197,4 @@ def expense_summary():
     return {
         "summary": data
     }
-    
+
