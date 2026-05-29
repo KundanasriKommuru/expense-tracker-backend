@@ -1,6 +1,6 @@
 # uvicorn :-- server name
 # FstALP():-- api creator in backend
-from fastapi import FastAPI
+from fastapi import FastAPI, Form
 import mysql.connector
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -52,29 +52,25 @@ def home():
 # ---------------- ADD EXPENSE ----------------
 @app.post("/add_expense")
 def add_expense(
-    date: str,
-    category: str,
-    amount: float,
-    payment_method: str,
-    description: str
+    date: str = Form(...),
+    category: str = Form(...),
+    amount: float = Form(...),
+    payment_method: str = Form(...),
+    description: str = Form(...)
 ):
-        query = """
-        INSERT INTO expenses
-        (date, category, amount, payment_method, description)
-        VALUES (%s, %s, %s, %s, %s)
-        """
-        values = (
-            date,
-            category,
-            amount,
-            payment_method,
-            description
-        )
-        cursor_obj.execute(query, values)
-        conn_obj.commit()
-        return {
-            "message": "Expense added successfully!"
-        }
+
+    query = """
+    INSERT INTO expenses
+    (date, category, amount, payment_method, description)
+    VALUES (%s, %s, %s, %s, %s)
+    """
+
+    values = (date, category, amount, payment_method, description)
+
+    cursor_obj.execute(query, values)
+    conn_obj.commit()
+
+    return {"message": "Expense added successfully!"}
 # ---------------- VIEW EXPENSES ----------------
 @app.get("/view_expenses")
 def view_expenses():
@@ -95,51 +91,46 @@ def view_expenses():
     return expenses
 
 # ---------------- UPDATE EXPENSE ----------------
+from fastapi import Form
+
 @app.put("/update_expense/{expense_id}")
 def update_expense(
     expense_id: int,
-    date: str,
-    category: str,
-    amount: float,
-    payment_method: str,
-    description: str
+    date: str = Form(...),
+    category: str = Form(...),
+    amount: float = Form(...),
+    payment_method: str = Form(...),
+    description: str = Form(...)
 ):
+
     query = """
     UPDATE expenses
-    SET
-        date = %s,
-        category = %s,
-        amount = %s,
-        payment_method = %s,
-        description = %s
-    WHERE expense_id = %s
+    SET date=%s, category=%s, amount=%s, payment_method=%s, description=%s
+    WHERE expense_id=%s
     """
-    values = (
-        date,
-        category,
-        amount,
-        payment_method,
-        description,
-        expense_id
-    )
+
+    values = (date, category, amount, payment_method, description, expense_id)
 
     cursor_obj.execute(query, values)
     conn_obj.commit()
-    return {
-        "message": "Expense updated successfully!"
-    }
 
+    return {"message": "Expense updated successfully!"}
 
 # ---------------- DELETE EXPENSE ----------------
 @app.delete("/delete_expense/{expense_id}")
 def delete_expense(expense_id: int):
+
     query = "DELETE FROM expenses WHERE expense_id = %s"
     cursor_obj.execute(query, (expense_id,))
     conn_obj.commit()
+    # check if anything was actually deleted
+    if cursor_obj.rowcount == 0:
+        return {
+            "message": "No expense found with this ID"
+        }
     return {
         "message": "Expense deleted successfully!"
     }
-
 # ---------------- SEARCH EXPENSES ----------------
 @app.get("/search_expenses")
 def search_expenses(category: str):
@@ -241,7 +232,6 @@ def generate_report(report_type: str):
         "expenses": expenses
     }
 
-#------------------ Analyze Spending ----------------
 # ---------------- ANALYZE SPENDING ----------------
 @app.get("/analyze_spending")
 def analyze_spending():
@@ -282,4 +272,3 @@ def analyze_spending():
         "category_analysis": category_analysis,
         "payment_analysis": payment_analysis
     }
-    
